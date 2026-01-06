@@ -137,3 +137,8 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# RaceSafe specific
+data/*.json
+data/*.sqlite
+nul

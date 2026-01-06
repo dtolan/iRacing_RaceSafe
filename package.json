@@ -1,0 +1,50 @@
+{
+  "name": "racesafe",
+  "version": "0.1.0",
+  "description": "AI-powered driver behavior analysis system for iRacing - pre-race risk assessment and strategic guidance",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "analyze": "ts-node src/cli.ts analyze",
+    "driver": "ts-node src/cli.ts driver",
+    "build-cache": "ts-node src/cli.ts build-cache",
+    "live": "ts-node src/scripts/liveSessionAnalysis.ts",
+    "last-race": "ts-node src/scripts/analyzeLastRace.ts",
+    "session": "ts-node src/scripts/analyzeSession.ts",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dtolan/iRacing_RaceSafe.git"
+  },
+  "keywords": [
+    "iracing",
+    "sim-racing",
+    "driver-analysis",
+    "safety-rating",
+    "risk-assessment"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dtolan/iRacing_RaceSafe/issues"
+  },
+  "homepage": "https://github.com/dtolan/iRacing_RaceSafe#readme",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "axios-cookiejar-support": "^5.0.0",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "iracing-sdk-js": "^1.5.0",
+    "tough-cookie": "^4.1.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/tough-cookie": "^4.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  }
+}

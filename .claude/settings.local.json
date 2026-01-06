@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdfinfo:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx ts-node:*)",
+      "Bash(cat:*)",
+      "Bash(npm show:*)",
+      "Bash(npm run live:*)"
+    ]
+  }
+}

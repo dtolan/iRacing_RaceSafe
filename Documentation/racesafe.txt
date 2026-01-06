@@ -1,0 +1,838 @@
+RaceSafe - Pre-Race Driver Analysis System
+Proof of Concept Specification
+
+Executive Summary
+RaceSafe is an AI-powered driver behavior analysis system for iRacing that provides pre-race risk assessment and strategic guidance. The system analyzes historical driver data to predict aggressive/risky behavior patterns and provides actionable warnings to help drivers make strategic decisions about when to push and when to yield.
+Target User: iRacing drivers focused on Safety Rating (SR) protection and consistent iRating growth, particularly in lower divisions where incident rates are higher.
+Core Value Proposition: "Know who to race wheel-to-wheel with, and who to let go by."
+
+Problem Statement
+User Pain Points
+
+Unpredictable incidents: Drivers get caught in incidents caused by aggressive/inexperienced competitors
+SR damage: Single torpedo incident can wipe out multiple clean races worth of SR gains
+No pre-race intelligence: Drivers enter races blind to competitor behavior patterns
+Wasted iRating opportunities: Conservative racing when field is actually clean, or aggressive racing when field is risky
+
+Specific Use Case (Real Example)
+
+Driver Dan: B license, 1.9 SR (close to demotion threshold at 2.0)
+Racing Mazda Rookie series, finishing P3-P5 consistently
+Gets rear-ended post-race by tilted driver: -0.09 SR (wipes out entire race worth of gains)
+Pain: One idiot's tantrum costs 20 minutes of clean racing progress
+
+
+Solution Architecture
+Three-Phase Implementation
+Phase 1: Pre-Race Analysis (POC Focus)
+Goal: Before race starts, analyze grid and provide risk assessment
+Inputs:
+
+Session entry list (grid lineup)
+Driver historical data from iRacing API
+User's current SR/iRating goals
+
+Outputs:
+
+Overall race risk score (1-10)
+Individual driver risk ratings
+Strategic recommendations (conservative vs. aggressive approach)
+
+Phase 2: Real-Time Warnings (Future)
+Goal: During race, provide contextual audio warnings about nearby drivers
+Examples:
+
+"Approaching Car #42 - aggressive defender, 73% incident rate when passed"
+"Car #17 closing behind - clean racer, safe to race wheel-to-wheel"
+"Final lap - Car #23 has 60% final-lap incident rate, defensive line recommended"
+
+Phase 3: Post-Race Analysis (Future)
+Goal: AI-powered race debrief with performance insights
+
+Technical Architecture - Phase 1 POC
+Tech Stack
+Data Layer
+
+iRacing Data API: Official API for race results and driver stats
+Python Library: iracingdataapi (https://pypi.org/project/iracingdataapi/)
+Database: SQLite for local driver profile cache (optional for POC)
+
+Analysis Layer
+
+LLM: Local inference using Llama 3 (8B or 70B) or similar
+Hardware: User has RTX 2080 GPU available for local inference
+Framework: llama.cpp or similar for efficient local LLM inference
+
+Presentation Layer
+
+POC: Command-line text output
+Future: TTS audio output, GUI dashboard
+
+Data Model
+Driver Risk Profile
+python{
+    "cust_id": 123456,
+    "display_name": "FastDriver42",
+    "irating": 1250,
+    "license_class": "B",
+    "sr": 2.8,
+    
+    # Incident statistics (last 10 races)
+    "avg_incidents_per_race": 6.2,
+    "total_races_analyzed": 10,
+    
+    # Incident timing breakdown
+    "incident_timing": {
+        "lap_1_2": 0.42,      # 42% of incidents in first 2 laps
+        "mid_race": 0.31,     # 31% mid-race
+        "final_lap": 0.27     # 27% in final lap
+    },
+    
+    # Behavioral patterns (if available from API)
+    "passing_incidents": 8,        # Incidents during overtakes
+    "defensive_incidents": 5,      # Incidents while defending
+    "solo_incidents": 3,           # Off-tracks, spins (no contact)
+    
+    # Derived metrics
+    "racecraft_score": 3.2,        # 0-10 scale (lower = riskier)
+    "sr_trend": "declining",       # "improving", "stable", "declining"
+    "risk_level": "HIGH"           # "LOW", "MODERATE", "HIGH"
+}
+Race Session Analysis
+python{
+    "session_id": 12345678,
+    "series": "Mazda MX-5 Cup",
+    "track": "Navarra",
+    "strength_of_field": 1242,
+    
+    "grid": [
+        {
+            "position": 1,
+            "cust_id": 123456,
+            "risk_profile": {...}
+        },
+        # ... more drivers
+    ],
+    
+    "analysis": {
+        "overall_risk_score": 7.2,     # 0-10 scale
+        "high_risk_drivers": 5,         # Count
+        "clean_drivers": 8,
+        "recommendation": "CONSERVATIVE" # or "MODERATE", "AGGRESSIVE"
+    }
+}
+
+iRacing API Integration
+Authentication
+pythonfrom iracingdataapi.client import irDataClient
+
+# Login (uses cookie-based auth)
+idc = irDataClient(
+    username='your_email@example.com',
+    password='your_password'
+)
+Key API Endpoints
+1. Get Recent Races for a Driver
+python# Get last 10-20 races for incident pattern analysis
+recent_races = idc.stats_member_recent_races(
+    cust_id=123456,
+    # Returns: list of race results with incident counts
+)
+Response structure:
+python[
+    {
+        "subsession_id": 12345,
+        "session_start_time": "2024-01-15T20:00:00Z",
+        "track_name": "Navarra",
+        "incidents": 4,
+        "finish_position": 8,
+        "strength_of_field": 1200,
+        # ... more fields
+    },
+    # ... more races
+]
+2. Get Specific Race Results
+python# Get detailed results for a specific race
+race_results = idc.result(subsession_id=12345678)
+# Returns: Full race results including all drivers
+3. Get Lap-by-Lap Data (Key for Incident Timing)
+python# Get lap data for incident timing analysis
+lap_data = idc.result_lap_data(
+    subsession_id=12345678,
+    cust_id=123456
+)
+Response structure:
+python[
+    {
+        "lap_number": 1,
+        "lap_time": 122.45,
+        "incidents": 2,  # Cumulative incidents up to this lap
+        "flags": 0
+    },
+    {
+        "lap_number": 2,
+        "lap_time": 121.89,
+        "incidents": 2,  # No new incidents on lap 2
+        "flags": 0
+    },
+    {
+        "lap_number": 3,
+        "lap_time": 123.12,
+        "incidents": 6,  # 4x incident on lap 3 (6-2=4)
+        "flags": 1
+    }
+]
+4. Get Current Session Entry List
+python# Get list of drivers registered for upcoming race
+# Note: This might require different endpoint or scraping the UI
+# Alternative: Use subsession_id after race has started
+
+POC Implementation Plan
+Milestone 1: Data Collection Script
+Goal: Pull and cache driver data from iRacing API
+Tasks:
+
+Set up iRacing API authentication
+Implement function to fetch recent races for a driver
+Implement function to analyze lap data for incident timing
+Build driver risk profile from historical data
+Cache results locally (JSON files or SQLite)
+
+Deliverable: collect_driver_data.py
+Example usage:
+bashpython collect_driver_data.py --cust_id 123456
+# Output: driver_123456_profile.json
+Milestone 2: Risk Analysis Engine
+Goal: Score drivers based on historical patterns
+Tasks:
+
+Calculate incident statistics (avg, distribution)
+Analyze incident timing patterns (lap 1 vs. mid-race vs. final lap)
+Detect SR trends (improving/declining)
+Generate risk score (0-10 scale)
+Classify behavior (aggressive T1, desperate passer, clean racer, etc.)
+
+Deliverable: analyze_driver_risk.py
+Example output:
+json{
+    "cust_id": 123456,
+    "risk_score": 7.8,
+    "risk_level": "HIGH",
+    "key_patterns": [
+        "42% of incidents occur in lap 1-2 (T1 aggression)",
+        "Declining SR trend over last 10 races",
+        "8.2 avg incidents per race (well above average)"
+    ],
+    "recommendation": "Avoid close racing - let them by if pressured"
+}
+Milestone 3: Pre-Race Grid Analysis
+Goal: Analyze entire grid and provide race strategy brief
+Tasks:
+
+Accept session entry list as input
+Pull risk profiles for all drivers
+Calculate overall race risk score
+Generate strategic recommendations
+
+Deliverable: analyze_race_grid.py
+Example usage:
+bashpython analyze_race_grid.py --session_id 12345678 --my_sr 1.9 --my_goal protect_sr
+Example output:
+=== RACE ANALYSIS ===
+Session: Mazda MX-5 Cup @ Navarra
+Strength of Field: 1242
+Grid Size: 20 drivers
+
+OVERALL RISK: 7.2/10 (HIGH RISK RACE)
+
+HIGH RISK DRIVERS (Avoid if possible):
+- P5: Driver #42 (8.2 avg incidents, T1 aggressor)
+- P8: Driver #17 (6.8 avg incidents, final lap desperado)
+- P12: Driver #23 (7.1 avg incidents, erratic)
+
+CLEAN RACERS (Safe to battle):
+- P3: Driver #88 (2.1 avg incidents, consistent)
+- P7: Driver #15 (2.8 avg incidents, experienced)
+
+YOUR STARTING POSITION: P18 (back of grid strategy)
+
+STRATEGIC RECOMMENDATION:
+Given your SR goal (protect 1.9 SR, avoid drop below 2.0):
+- Conservative approach recommended
+- Let high-risk drivers settle in first 3 laps
+- Target clean finish P8-P12
+- Avoid wheel-to-wheel battles unless against clean racers
+
+Expected outcome with conservative strategy:
+- 85% chance of <4 incident points
+- 70% chance of top-10 finish
+- +0.05-0.10 SR gain likely
+Milestone 4: LLM Integration (Optional for POC)
+Goal: Use LLM to generate natural language race briefings
+Tasks:
+
+Set up local LLM inference (Llama 3 8B via llama.cpp)
+Create prompt template for race analysis
+Feed driver stats and race context to LLM
+Generate conversational strategic advice
+
+Deliverable: llm_race_briefing.py
+Example LLM prompt:
+You are RaceSafe, an AI race strategist for iRacing. Analyze this race grid and provide strategic advice.
+
+MY PROFILE:
+- Current SR: 1.9 (close to 2.0 demotion threshold for B license)
+- Current iRating: 1174
+- Goal: Protect SR, finish clean
+- Starting Position: P18
+
+RACE CONTEXT:
+- Series: Mazda MX-5 Rookie Cup
+- Track: Navarra
+- Strength of Field: 1242
+- Grid size: 20 drivers
+
+DRIVER RISK ANALYSIS:
+[Insert JSON data of all drivers with risk scores]
+
+HIGH RISK DRIVERS TO NOTE:
+- Driver #42 (P5): 8.2 avg incidents, 42% occur in lap 1-2 (T1 hero)
+- Driver #17 (P8): 6.8 avg incidents, 60% occur in final lap (desperate passer)
+
+CLEAN DRIVERS:
+- Driver #88 (P3): 2.1 avg incidents, stable SR 3.5
+- Driver #15 (P7): 2.8 avg incidents, consistent
+
+Provide a concise race strategy briefing (3-4 paragraphs) covering:
+1. Overall race risk assessment
+2. Specific drivers to avoid/watch
+3. Strategic approach (aggressive, moderate, conservative)
+4. Key moments to be cautious (T1, final laps)
+5. Expected outcome if strategy followed
+
+Success Metrics (POC)
+Technical Metrics
+
+ Successfully authenticate with iRacing API
+ Pull driver data for 20+ drivers
+ Calculate risk scores for all drivers
+ Generate race analysis report in <30 seconds
+ LLM inference completes in <5 seconds (local GPU)
+
+User Value Metrics
+
+ Correctly identifies known aggressive drivers (manual validation)
+ Recommendations align with user's intuition
+ Analysis provides new/surprising insights
+ User feels more confident entering race with this data
+
+
+Future Enhancements (Post-POC)
+Phase 2: Real-Time Race Warnings
+
+Integrate with iRacing SDK for live telemetry
+Audio warnings via TTS when approaching risky drivers
+Contextual advice based on current race situation
+"Approaching Car #42 in 3 corners - aggressive defender, recommend patience"
+
+Phase 3: Post-Race Analysis
+
+AI-powered race debrief
+Video analysis of racing lines (vision models)
+Personalized improvement recommendations
+Track-specific incident pattern analysis
+
+Phase 4: Community Features
+
+Share driver ratings (crowd-sourced validation)
+League-specific analysis
+Track reputation scores
+"Clean racing" badges for consistent drivers
+
+Phase 5: Commercial Product
+
+Web dashboard
+Mobile app with push notifications
+Subscription model ($5-10/month)
+Integration with other sim racing platforms (ACC, rFactor2)
+
+
+Privacy & Ethics Considerations
+Data Usage
+
+All data is publicly available via iRacing API
+No private/personal information beyond race statistics
+Driver profiles are based on objective incident data, not subjective opinions
+
+Fair Use
+
+Analysis is for personal decision-making, not public shaming
+Risk scores are predictive/statistical, not definitive labels
+System should help users race smarter, not avoid competition entirely
+
+Transparency
+
+Users should understand how risk scores are calculated
+Provide option to see underlying data
+Allow drivers to understand their own risk profile
+
+
+Technical Requirements
+Development Environment
+
+Python 3.9+
+GPU: RTX 2080 or better (for local LLM inference)
+RAM: 16GB+ (for loading LLM models)
+Storage: 10GB+ (for driver profile cache)
+
+Python Dependencies
+iracingdataapi==2.1.3
+requests==2.31.0
+pandas==2.1.0
+numpy==1.24.3
+llama-cpp-python==0.2.20  # For local LLM inference
+pydantic==2.4.0  # For data validation
+tqdm==4.66.0  # For progress bars
+Optional Dependencies
+sqlite3  # For local caching
+pyttsx3  # For text-to-speech (future)
+pyaudio  # For audio output (future)
+
+Implementation Timeline
+Week 1: Data Collection
+
+Days 1-2: iRacing API setup and authentication
+Days 3-4: Driver data collection script
+Days 5-7: Incident timing analysis
+
+Week 2: Risk Analysis
+
+Days 1-3: Risk scoring algorithm
+Days 4-5: Pattern detection (T1 aggression, final lap incidents)
+Days 6-7: Testing and validation with known drivers
+
+Week 3: Grid Analysis & Presentation
+
+Days 1-3: Grid analysis script
+Days 4-5: Output formatting and reports
+Days 6-7: LLM integration (optional)
+
+Week 4: Polish & Testing
+
+Days 1-3: End-to-end testing
+Days 4-5: Documentation
+Days 6-7: User testing with real race sessions
+
+Total POC Timeline: ~4 weeks part-time (10-15 hours/week)
+
+Example Workflows
+Workflow 1: Pre-Race Analysis (CLI)
+bash# Step 1: User registers for a race in iRacing UI
+# Step 2: Get session ID from iRacing (visible in UI or URL)
+
+# Step 3: Run analysis
+python racesafe.py analyze --session_id 12345678 --my_sr 1.9
+
+# Step 4: Read strategic briefing
+# Step 5: Join race with confidence
+Workflow 2: Batch Driver Analysis (Build Cache)
+bash# Analyze all drivers from last 5 races to build database
+python racesafe.py build-cache --last_races 5
+
+# This runs overnight, builds local driver profile database
+# Future analyses are instant (using cached data)
+Workflow 3: Single Driver Lookup
+bash# Quick check on a specific driver
+python racesafe.py driver --cust_id 123456
+
+# Output:
+# Driver: FastDriver42
+# iRating: 1250 | SR: 2.3 | License: B
+# Risk Score: 7.8/10 (HIGH RISK)
+# Pattern: T1 aggressor (42% lap 1-2 incidents)
+# Recommendation: Avoid close racing
+
+Sample Code Snippets
+Basic Driver Analysis
+pythonfrom iracingdataapi.client import irDataClient
+
+def analyze_driver(cust_id, num_races=10):
+    """
+    Analyze a driver's incident patterns from recent races
+    
+    Returns:
+        dict: Driver risk profile
+    """
+    idc = irDataClient(username=USERNAME, password=PASSWORD)
+    
+    # Get recent races
+    races = idc.stats_member_recent_races(cust_id=cust_id)[:num_races]
+    
+    # Calculate statistics
+    total_incidents = sum(race['incidents'] for race in races)
+    avg_incidents = total_incidents / len(races)
+    
+    # Analyze incident timing (requires lap data for each race)
+    timing_patterns = analyze_incident_timing(idc, races, cust_id)
+    
+    # Generate risk score
+    risk_score = calculate_risk_score(avg_incidents, timing_patterns)
+    
+    return {
+        'cust_id': cust_id,
+        'avg_incidents': avg_incidents,
+        'timing_patterns': timing_patterns,
+        'risk_score': risk_score,
+        'risk_level': classify_risk(risk_score)
+    }
+
+def analyze_incident_timing(idc, races, cust_id):
+    """
+    Analyze when incidents occur (lap 1 vs mid-race vs final lap)
+    """
+    lap_1_2_incidents = 0
+    mid_race_incidents = 0
+    final_lap_incidents = 0
+    
+    for race in races:
+        # Get lap-by-lap data
+        lap_data = idc.result_lap_data(
+            subsession_id=race['subsession_id'],
+            cust_id=cust_id
+        )
+        
+        total_laps = len(lap_data)
+        
+        for i, lap in enumerate(lap_data):
+            if i == 0:
+                continue  # Skip first lap (no previous to compare)
+            
+            # Calculate incidents on this lap
+            lap_incidents = lap['incidents'] - lap_data[i-1]['incidents']
+            
+            # Classify by timing
+            if lap['lap_number'] <= 2:
+                lap_1_2_incidents += lap_incidents
+            elif lap['lap_number'] >= total_laps - 1:
+                final_lap_incidents += lap_incidents
+            else:
+                mid_race_incidents += lap_incidents
+    
+    total = lap_1_2_incidents + mid_race_incidents + final_lap_incidents
+    
+    if total == 0:
+        return {'lap_1_2': 0, 'mid_race': 0, 'final_lap': 0}
+    
+    return {
+        'lap_1_2': lap_1_2_incidents / total,
+        'mid_race': mid_race_incidents / total,
+        'final_lap': final_lap_incidents / total
+    }
+
+def calculate_risk_score(avg_incidents, timing_patterns):
+    """
+    Calculate 0-10 risk score based on incident statistics
+    
+    Factors:
+    - Average incidents per race (higher = riskier)
+    - Lap 1-2 incident rate (early aggression indicator)
+    - Final lap incident rate (desperation indicator)
+    """
+    # Base score from average incidents
+    # 0-2 incidents = low risk (0-3)
+    # 3-5 incidents = moderate risk (4-6)
+    # 6+ incidents = high risk (7-10)
+    
+    if avg_incidents <= 2:
+        base_score = avg_incidents * 1.5
+    elif avg_incidents <= 5:
+        base_score = 3 + (avg_incidents - 2) * 1.0
+    else:
+        base_score = 6 + min((avg_incidents - 5) * 0.8, 4)
+    
+    # Adjust for timing patterns
+    timing_modifier = 0
+    
+    # Penalize lap 1-2 aggression
+    if timing_patterns['lap_1_2'] > 0.4:  # >40% incidents in first 2 laps
+        timing_modifier += 1.5
+    
+    # Penalize final lap desperation
+    if timing_patterns['final_lap'] > 0.3:  # >30% incidents in final lap
+        timing_modifier += 1.0
+    
+    final_score = min(base_score + timing_modifier, 10.0)
+    
+    return round(final_score, 1)
+
+def classify_risk(risk_score):
+    """Convert numeric risk score to category"""
+    if risk_score < 4:
+        return "LOW"
+    elif risk_score < 7:
+        return "MODERATE"
+    else:
+        return "HIGH"
+
+LLM Prompt Template
+pythonSYSTEM_PROMPT = """You are RaceSafe, an AI-powered race strategist for iRacing sim racing. 
+
+Your role is to analyze driver behavior patterns and provide strategic racing advice. You help drivers make smart decisions about when to race aggressively and when to race conservatively based on:
+- Safety Rating (SR) protection goals
+- Competitor incident patterns
+- Race context (track, series, strength of field)
+
+You provide clear, actionable advice in a conversational but professional tone. You focus on practical strategy, not just data dumps."""
+
+def generate_race_briefing(session_data, my_profile, driver_profiles):
+    """
+    Generate LLM-powered race strategy briefing
+    """
+    
+    user_prompt = f"""Analyze this upcoming race and provide strategic advice.
+
+MY PROFILE:
+- Current SR: {my_profile['sr']} (goal: maintain above {my_profile['sr_goal']})
+- Current iRating: {my_profile['irating']}
+- Racing goal: {my_profile['goal_description']}
+- Starting Position: P{my_profile['starting_position']}
+
+RACE CONTEXT:
+- Series: {session_data['series']}
+- Track: {session_data['track']}
+- Strength of Field: {session_data['sof']}
+- Grid size: {len(driver_profiles)} drivers
+
+GRID ANALYSIS:
+Overall Risk Score: {session_data['overall_risk']}/10
+
+High Risk Drivers (>7.0 risk score):
+{format_driver_list(session_data['high_risk_drivers'])}
+
+Clean Drivers (<4.0 risk score):
+{format_driver_list(session_data['clean_drivers'])}
+
+KEY PATTERNS OBSERVED:
+{format_patterns(session_data['patterns'])}
+
+Provide a race strategy briefing covering:
+1. Overall assessment of race risk level
+2. Specific drivers to be cautious around
+3. Recommended racing approach (aggressive/moderate/conservative)
+4. Key moments to watch (T1, mid-race, final laps)
+5. Expected outcome if strategy is followed
+
+Keep the briefing concise (3-4 paragraphs) and actionable."""
+
+    # Call LLM (using local inference or API)
+    response = llm.generate(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+        max_tokens=500,
+        temperature=0.7
+    )
+    
+    return response
+
+Testing Strategy
+Unit Tests
+
+Test driver data collection from API
+Test risk score calculation with known inputs
+Test incident timing analysis accuracy
+Test LLM prompt formatting
+
+Integration Tests
+
+End-to-end workflow: session ID → race briefing
+API authentication and error handling
+Cache management and performance
+LLM inference speed and quality
+
+User Acceptance Testing
+
+Run analysis on 5 recent races user participated in
+Validate that high-risk drivers align with user's experience
+Validate that clean drivers align with user's experience
+Check if recommendations make strategic sense
+Measure time from session ID to briefing (<30 sec target)
+
+Edge Cases
+
+New drivers with no race history
+Private profiles (API access denied)
+API rate limiting / timeouts
+Invalid session IDs
+Mixed license classes in grid
+
+
+Business Considerations (Post-POC)
+Monetization Options
+
+Freemium: Basic analysis free, premium features paid ($5-10/month)
+One-time purchase: Pay once for desktop app ($20-50)
+Team/League subscriptions: Group pricing for racing leagues
+API access: Sell API access to third-party developers
+
+Competitive Landscape
+
+iSpeed: Lap time analysis (focused on performance, not risk)
+VRS: Professional coaching and telemetry (high-end, expensive)
+Trading Paints: Custom liveries (different domain)
+Crew Chief: Voice assistant (general racing info, not risk-specific)
+
+Competitive Advantage: First mover in driver behavior risk analysis
+Market Size
+
+iRacing has ~200,000 active subscribers
+Target market: Division 5-10 drivers (est. 60-70% of user base = ~120,000)
+Conversion rate: 2-5% would pay for premium version
+Potential market: 2,400 - 6,000 paying users
+Revenue potential: $144k - $720k annually at $5/month
+
+
+Resources & References
+iRacing API Documentation
+
+Official API docs: https://forums.iracing.com/discussion/22109/
+Community API wrapper: https://github.com/jasondilworth56/iracingdataapi
+API endpoint explorer: https://members-ng.iracing.com/data/doc
+
+LLM Resources
+
+Llama.cpp: https://github.com/ggerganov/llama.cpp
+Llama 3 models: https://huggingface.co/meta-llama
+Python bindings: https://github.com/abetlen/llama-cpp-python
+
+iRacing Community Resources
+
+r/iRacing subreddit: Community feedback and testing
+iRacing forums: API discussions and driver behavior topics
+Trading Paints: Example of successful third-party iRacing tool
+
+
+Contact & Next Steps
+POC Goals:
+
+Validate that iRacing API provides necessary data
+Prove that risk analysis provides actionable insights
+Demonstrate LLM can generate useful strategic advice
+Get feedback from 5-10 beta testers
+
+Success Criteria:
+
+Users report feeling more confident entering races
+Users can identify at least 2-3 high-risk drivers per race
+Analysis completes in <30 seconds
+80%+ of high-risk predictions align with actual race incidents
+
+Decision Point After POC:
+
+If successful → Build Phase 2 (real-time warnings)
+If marginal → Pivot to post-race analysis instead
+If unsuccessful → Shelve project, focus on Lurkify
+
+
+Appendix A: Sample API Responses
+Driver Recent Races Response
+json[
+  {
+    "subsession_id": 67890123,
+    "session_start_time": "2024-01-15T20:00:00Z",
+    "track": {
+      "track_id": 123,
+      "track_name": "Circuit de Barcelona - Catalunya"
+    },
+    "license_level": 8,
+    "series_id": 123,
+    "series_name": "Mazda MX-5 Cup",
+    "season_id": 4567,
+    "session_type": "Race",
+    "start_position": 12,
+    "finish_position": 8,
+    "incidents": 4,
+    "strength_of_field": 1242,
+    "old_irating": 1150,
+    "new_irating": 1165,
+    "old_license_level": 8,
+    "new_license_level": 8,
+    "old_sub_level": 235,
+    "new_sub_level": 250,
+    "laps_complete": 18,
+    "laps_lead": 0
+  }
+]
+Lap Data Response
+json[
+  {
+    "group_id": 1,
+    "name": "Race",
+    "lap_number": 0,
+    "flags": 0,
+    "incident": 0,
+    "session_time": 0,
+    "session_start_time": 0,
+    "lap_time": -1,
+    "team_fastest_lap": false,
+    "personal_best_lap": false,
+    "license_level": 8,
+    "sublevel": 235,
+    "helmet": {...},
+    "car_number": "42"
+  },
+  {
+    "group_id": 1,
+    "name": "Race",
+    "lap_number": 1,
+    "flags": 0,
+    "incident": 2,
+    "session_time": 125.456,
+    "session_start_time": 0,
+    "lap_time": 125456,
+    "team_fastest_lap": false,
+    "personal_best_lap": false
+  }
+]
+
+Appendix B: Risk Score Calibration
+Reference Data (Manual Validation)
+Based on user Dan's racing experience in Division 9-10:
+Driver TypeAvg IncidentsLap 1-2 %Final Lap %Risk ScoreClassification"The Torpedo"8-1250-60%20-30%8.5-10.0HIGH"T1 Hero"6-860-80%10-20%7.0-8.5HIGH"Desperate Dan"5-720-30%50-70%6.5-8.0MODERATE-HIGH"Inconsistent Ivan"4-630-40%20-30%5.0-6.5MODERATE"Learning Larry"3-540-50%10-20%4.0-5.5MODERATE"Clean Claire"1-320-30%10-20%1.5-3.5LOW"Alien Alex"0-210-20%5-10%0.0-2.0LOW
+Use these archetypes to validate risk scoring algorithm.
+
+Appendix C: Feature Roadmap
+MVP (Phase 1)
+
+ iRacing API integration
+ Driver data collection
+ Risk score calculation
+ Pre-race grid analysis
+ CLI output
+ LLM integration (optional)
+
+Version 1.0
+
+ GUI dashboard
+ Session history tracking
+ Accuracy metrics (predicted vs. actual incidents)
+ User preferences (risk tolerance settings)
+ Export race briefing to PDF/text
+
+Version 2.0 (Real-Time)
+
+ iRacing SDK integration (live telemetry)
+ Audio warnings (TTS)
+ Contextual advice during race
+ Relative positioning alerts
+ Post-race incident analysis
+
+Version 3.0 (Community)
+
+ Web platform
+ User accounts and profiles
+ Share race briefings
+ League integration
+ Driver reputation system (crowd-sourced)
+
+
+END OF SPECIFICATION
