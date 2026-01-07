@@ -1,10 +1,10 @@
 # RaceSafe
 
-AI-powered driver behavior analysis system for iRacing - pre-race risk assessment, real-time incident monitoring, and strategic guidance.
+Driver behavior analysis tool for iRacing - pre-race risk assessment, real-time incident monitoring, and strategic guidance.
 
 ## What is RaceSafe?
 
-RaceSafe is a background monitoring tool that helps you make informed decisions during iRacing sessions. It analyzes drivers in your session based on their historical data and alerts you to potential risks.
+RaceSafe is a background monitoring tool that helps you make informed decisions during iRacing sessions. It analyzes drivers in your session based on their historical race data from the iRacing API and alerts you to potential risks.
 
 ### Key Features
 
@@ -261,6 +261,7 @@ RaceSafe
 
 ## Future Plans
 
+- **AI-Powered Analysis**: Machine learning to detect driving patterns and predict incident likelihood
 - **Web Dashboard**: Local HTTP server for post-race statistics and settings UI
 - **Mobile Access**: View session data on your phone
 - **OBS Integration**: Overlay source for streaming
