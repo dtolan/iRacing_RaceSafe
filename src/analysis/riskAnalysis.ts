@@ -5,6 +5,69 @@ import {
   IRacingLapData,
 } from '../types';
 
+// =============================================================================
+// FUTURE ENHANCEMENTS / KNOWN CONCERNS
+// =============================================================================
+//
+// FEATURE: System Tray Application (Background Service)
+// ------------------------------------------------------
+// Goal: Run RaceSafe as a persistent background application that:
+//   1. Sits in the Windows system tray when iRacing is not running
+//   2. Auto-detects when iRacing launches and connects automatically
+//   3. Provides continuous guidance across Practice → Qualify → Race
+//   4. Shows tray notifications for key events (new HIGH risk driver joined, etc.)
+//   5. Persists driver analysis cache between sessions
+//
+// Implementation approach:
+//   - Use Electron for cross-platform tray app with native notifications
+//   - Or use 'systray2' / 'node-notifier' packages for lighter Node.js solution
+//   - Poll for iRacing SDK connection every few seconds when disconnected
+//   - Maintain WebSocket or IPC for communication with overlay UI (future)
+//   - Store analyzed driver cache in local SQLite/JSON for instant lookups
+//
+// Session handling improvements needed:
+//   - Detect session type (Practice/Qualify/Race/Warmup)
+//   - Handle drivers joining/leaving in practice (re-analyze new drivers)
+//   - Track incidents across session transitions (practice → race)
+//   - Different alert behaviors per session type (less urgent in practice)
+//
+// Tray menu options:
+//   - "RaceSafe: Connected to iRacing" / "Waiting for iRacing..."
+//   - "Current Session: [Track] - [Session Type]"
+//   - "High Risk Drivers Nearby: X"
+//   - "Your Session Incidents: Xx"
+//   - "Settings" → Configure alert thresholds, sounds, etc.
+//   - "Exit"
+//
+// Priority: Medium-High (significant UX improvement)
+// Complexity: Medium (requires new app architecture)
+// =============================================================================
+//
+// CONCERN: SR vs Incident Count Paradox
+// --------------------------------------
+// A driver can have a HIGH Safety Rating (e.g., 3.5+) while also having a
+// HIGH incident count per race (e.g., 6+ avg). This is misleading because:
+//
+// 1. SR is calculated as incidents per corner completed (rolling average)
+// 2. High-volume racers accumulate corners faster than incidents
+// 3. Long races on high corner-count tracks (Nordschleife, Spa) allow SR farming
+// 4. SR recovers quickly from clean practice sessions
+// 5. License promotions partially reset SR, masking history
+//
+// Example: A driver with SR 3.50 but 6.3 avg incidents/race is MORE dangerous
+// than their SR suggests. They're contact-prone but race enough to offset losses.
+//
+// TODO: Implement detection for "SR Misleading" flag when:
+//   - SR >= 3.0 (respectable) AND avgIncidentsPerRace >= 5.0 (high)
+//   - Could add to keyPatterns: "SR misleading: High SR masks X.X avg incidents"
+//   - Could add srMisleading: boolean to DriverRiskProfile
+//   - Consider weighting incident average MORE heavily than SR in risk calculations
+//
+// Related: The current riskScore calculation already prioritizes incident count
+// over SR (see calculateRiskScore), but we should surface this discrepancy to
+// users explicitly so they understand WHY a "safe-looking" driver is flagged.
+// =============================================================================
+
 export interface IncidentTiming {
   lap1_2: number;
   midRace: number;

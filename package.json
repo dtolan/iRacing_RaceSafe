@@ -11,9 +11,14 @@
     "analyze": "ts-node src/cli.ts analyze",
     "driver": "ts-node src/cli.ts driver",
     "build-cache": "ts-node src/cli.ts build-cache",
+    "racesafe": "ts-node src/scripts/racesafe.ts",
     "live": "ts-node src/scripts/liveSessionAnalysis.ts",
+    "monitor": "ts-node src/scripts/inRaceMonitor.ts",
     "last-race": "ts-node src/scripts/analyzeLastRace.ts",
     "session": "ts-node src/scripts/analyzeSession.ts",
+    "service:install": "ts-node src/scripts/install-service.ts install",
+    "service:uninstall": "ts-node src/scripts/install-service.ts uninstall",
+    "service:status": "ts-node src/scripts/install-service.ts status",
     "test": "jest"
   },
   "repository": {
@@ -39,6 +44,7 @@
     "commander": "^11.1.0",
     "dotenv": "^16.3.1",
     "iracing-sdk-js": "^1.5.0",
+    "node-windows": "^1.0.0-beta.8",
     "tough-cookie": "^4.1.3"
   },
   "devDependencies": {
